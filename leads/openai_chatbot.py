@@ -1,63 +1,70 @@
-import openai
+"""
+OpenAI helper wrapper using the **v1** Python SDK (>=1.0.0).
+
+Exports
+-------
+OPENAI_MODEL       – default model name (env-overrideable)
+_format_history()  – helper for converting chat history
+get_openai_response(prompt, history) – synchronous call
+stream_openai_response(prompt, history) – sync generator for streaming
+"""
+
 import os
-from dotenv import load_dotenv
 from typing import Iterable, List, Tuple
 
+import openai
+from dotenv import load_dotenv
 
-load_dotenv()  # Load your .env file with OPENAI_API_KEY
+# ---------------------------------------------------------------------
+# ENV & CLIENT SETUP
+# ---------------------------------------------------------------------
+load_dotenv()  # reads .env for OPENAI_API_KEY, OPENAI_MODEL, etc.
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# Synchronous client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_openai_response(prompt, chat_history=None):
-    """
-    Sends the user prompt and chat history to OpenAI and returns the response.
 
-    Args:
-        prompt (str): User input
-        chat_history (list): Previous chat history (optional)
-
-    Returns:
-        str: Assistant's reply
-    """
-    try:
-        messages = []
-
-        # Add chat history if available
-        if chat_history:
-            for user_msg, bot_msg in chat_history:
-                messages.append({"role": "user", "content": user_msg})
+# ---------------------------------------------------------------------
+# INTERNAL HELPERS
+# ---------------------------------------------------------------------
+def _format_history(chat_history: List[Tuple[str, str]] | None) -> List[dict]:
+    """Convert list[(user, bot)] → OpenAI messages list."""
+    messages: List[dict] = []
+    if chat_history:
+        for user_msg, bot_msg in chat_history:
+            messages.append({"role": "user", "content": user_msg})
+            if bot_msg:
                 messages.append({"role": "assistant", "content": bot_msg})
+    return messages
 
-        # Add latest user prompt
-        messages.append({"role": "user", "content": prompt})
 
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Or "gpt-4" if available
-            messages=messages,
-            temperature=0.7
-        )
-
-        return response.choices[0].message.content.strip()
-
-    except Exception as e:
-        return f"OpenAI Error: {str(e)}"
+# ---------------------------------------------------------------------
+# PUBLIC FUNCTIONS
+# ---------------------------------------------------------------------
+def get_openai_response(prompt: str, chat_history=None) -> str:
+    """Blocking helper – returns the full assistant reply."""
+    messages = _format_history(chat_history) + [{"role": "user", "content": prompt}]
+    resp = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=messages,
+        temperature=0.7,
+    )
+    return resp.choices[0].message.content.strip()
 
 
 def stream_openai_response(
     prompt: str, chat_history: List[Tuple[str, str]] | None = None
 ) -> Iterable[str]:
-    """
-    Generator yielding content chunks for Gradio streaming UI.
-    """
+    """Sync generator for streaming chunks (used by non-async UIs)."""
     messages = _format_history(chat_history) + [{"role": "user", "content": prompt}]
-    resp = openai.ChatCompletion.create(
+    collected = ""
+    for chunk in client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=messages,
-        stream=True,
         temperature=0.7,
-    )
-    collected = ""
-    for chunk in resp:
-        delta = chunk.choices[0].delta.get("content", "")
+        stream=True,
+    ):
+        delta = chunk.choices[0].delta.content or ""
         collected += delta
         yield collected
