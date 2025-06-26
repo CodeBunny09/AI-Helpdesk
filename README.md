@@ -5,16 +5,28 @@ This project is a Django-based backend that integrates a chatbot using OpenAI's 
 ## 📁 Project Structure
 
 ```
-
 .
-├── backend/                # Django project config (settings, urls, wsgi)
-├── leads/                  # App with chatbot logic, APIs, templates
-├── manage.py               # Django CLI entry point
-├── db.sqlite3              # Default Django SQLite DB
-├── leads.db                # Possible separate DB for lead data
-├── requirements.txt        # Python dependencies
-├── flat.sh                 # Script for flattening project output
-├── project\_flattened\_output.txt  # Output from the flattening script
+├── backend/                  # Django backend project
+│   ├── backend/             # Django project settings and core files
+│   │   ├── settings.py      # Main project configuration
+│   │   ├── urls.py          # Root URL declarations
+│   │   └── wsgi.py          # WSGI entry point for deployment
+│   ├── leads/               # Django app for managing leads and AI chat
+│   │   ├── admin.py         # Django admin config for leads
+│   │   ├── models.py        # Database models
+│   │   ├── serializers.py   # DRF serializers for API
+│   │   ├── views.py         # API views and logic
+│   │   ├── urls.py          # App-specific routes
+│   │   ├── gradio_app.py    # Gradio UI integration
+│   │   ├── openai_chatbot.py# OpenAI logic integration
+│   │   └── templates/       # HTML templates for embedding Gradio/UI
+│   ├── manage.py            # Django management CLI
+│   └── requirements.txt     # Backend dependencies
+│
+├── frontend/                # React frontend (Add React/Vite app here, yet to be added)
+│
+├── .gitignore               # Specifies untracked files
+├── README.md                # Project overview and instructions
 
 ````
 
