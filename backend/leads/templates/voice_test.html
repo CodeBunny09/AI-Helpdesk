@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Voice Call Simulation</title>
+</head>
+<body>
+  <h2>🎤 AI Voice Conversation</h2>
+
+  <button onclick="startRecording()">🎙️ Start Talking</button>
+  <button onclick="stopRecording()">🛑 Send to Bot</button>
+  <p id="status">Not recording...</p>
+
+  <audio id="botAudio" controls autoplay>
+    <source id="audioSource" src="" type="audio/wav">
+    Your browser does not support the audio element.
+  </audio>
+
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+
+    async function startRecording() {
+      try {
+        document.getElementById("status").innerText = "Recording...";
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        audioChunks = [];
+        mediaRecorder.ondataavailable = event => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+      } catch (err) {
+        document.getElementById("status").innerText = "Microphone access denied!";
+        console.error(err);
+      }
+    }
+
+    async function stopRecording() {
+      if (!mediaRecorder) return;
+      mediaRecorder.stop();
+      document.getElementById("status").innerText = "Sending to server...";
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append("audio", blob, "recording.webm");
+        formData.append("lead_id", "1");  // Replace with actual dynamic lead_id if needed
+        formData.append("model", "tts-1-hd");
+        formData.append("voice", "nova");
+
+        try {
+          const response = await fetch("/leads/voice-chat/", {
+            method: "POST",
+            body: formData
+          });
+
+          if (response.ok) {
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = document.getElementById("botAudio");
+            const source = document.getElementById("audioSource");
+            source.src = audioUrl;
+            audio.load();
+            audio.play().catch(err => console.warn("Playback failed:", err));
+            document.getElementById("status").innerText = "Bot replied!";
+          } else {
+            document.getElementById("status").innerText = "Bot response failed!";
+          }
+        } catch (err) {
+          console.error(err);
+          document.getElementById("status").innerText = "Fetch error.";
+        }
+
+        audioChunks = [];
+      };
+    }
+  </script>
+</body>
+</html>
